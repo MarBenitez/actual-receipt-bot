@@ -1,0 +1,23 @@
+{
+  "name": "actual-receipt-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot that reads a receipt photo on your own server and logs the expense in Actual Budget",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "keywords": [
+    "actual-budget",
+    "telegram-bot",
+    "ocr",
+    "tesseract",
+    "receipts"
+  ],
+  "author": "Mar Benitez",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@actual-app/api": "^26.11.0",
+    "grammy": "^1.46.0",
+    "sharp": "^0.35.5"
+  }
+}
