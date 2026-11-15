@@ -11,6 +11,8 @@ const cfg = {
   cuenta: process.env.ACTUAL_ACCOUNT, // nombre de la cuenta donde se apuntan los tickets
 };
 
+export const nombre = 'Actual';
+
 let cuentaId = null;
 
 export async function conectar() {

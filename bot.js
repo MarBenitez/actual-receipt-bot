@@ -1,9 +1,11 @@
-// Bot de Telegram: mandas la foto del ticket, te enseña lo que ha leído y, si le das a Guardar, lo apunta en Actual.
+// Bot de Telegram: mandas la foto del ticket, te enseña lo que ha leído y, si le das a Guardar, lo apunta en Actual
+// o en Google Sheets (DESTINO=sheets).
 import { randomUUID } from 'node:crypto';
 import { Bot, InlineKeyboard } from 'grammy';
 import { leerFoto } from './ocr.js';
 import { formatoEuros, importeACentimos } from './parser.js';
-import * as actual from './actual.js';
+// Dónde se apuntan los gastos: Actual (por defecto) o Google Sheets. Los dos módulos tienen las mismas funciones.
+const actual = process.env.DESTINO === 'sheets' ? await import('./sheets.js') : await import('./actual.js');
 
 const token = process.env.TELEGRAM_TOKEN;
 const permitidos = new Set((process.env.ALLOWED_USER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean));
@@ -87,7 +89,7 @@ function fechaEscrita(t) {
 }
 
 bot.command('start', (ctx) =>
-  ctx.reply('Mándame la foto de un ticket y lo apunto en Actual. También vale escribir "12,50 bar".'),
+  ctx.reply(`Mándame la foto de un ticket y lo apunto en ${actual.nombre}. También vale escribir "12,50 bar".`),
 );
 
 bot.on('message:photo', async (ctx) => {
@@ -173,15 +175,18 @@ bot.callbackQuery(new RegExp(`^ok:${ID}$`), async (ctx) => {
   const id = ctx.match[1];
   const p = pendientes.get(id);
   if (!p) return ctx.answerCallbackQuery('Este ticket ya no está pendiente');
+  let r;
   try {
-    await actual.apuntar({ ...p, nota: 'Desde Telegram' });
+    r = await actual.apuntar({ ...p, nota: 'Desde Telegram' });
   } catch (e) {
-    console.error('Error apuntando en Actual:', e.message);
-    return ctx.answerCallbackQuery({ text: 'No he podido apuntarlo en Actual. Prueba otra vez en un rato.', show_alert: true });
+    console.error(`Error apuntando en ${actual.nombre}:`, e.message);
+    return ctx.answerCallbackQuery({ text: `No he podido apuntarlo en ${actual.nombre}. Prueba otra vez en un rato.`, show_alert: true });
   }
   pendientes.delete(id);
   await ctx.answerCallbackQuery('Apuntado');
-  return ctx.editMessageText(`✅ Apuntado en Actual\n${p.comercio || 'Ticket'} · −${formatoEuros(p.cents)} · ${fechaBonita(p.fecha)}${p.nombreCat ? ` · ${p.nombreCat}` : ''}`);
+  const mes = new Date().toLocaleString('es-ES', { month: 'long', timeZone: 'Europe/Madrid' });
+  const llevas = r?.totalMesCents ? `\n\nLlevas ${formatoEuros(r.totalMesCents)} en ${mes}.` : '';
+  return ctx.editMessageText(`✅ Apuntado en ${actual.nombre}\n${p.comercio || 'Ticket'} · −${formatoEuros(p.cents)} · ${fechaBonita(p.fecha)}${p.nombreCat ? ` · ${p.nombreCat}` : ''}${llevas}`);
 });
 
 bot.callbackQuery(new RegExp(`^no:${ID}$`), async (ctx) => {
@@ -226,7 +231,7 @@ bot.callbackQuery(new RegExp(`^pc:${ID}:([0-9a-f-]{36})$`), async (ctx) => {
 bot.catch((err) => console.error('Error en el bot:', err.error?.message || err));
 
 await actual.conectar();
-console.log('Conectado a Actual. Bot escuchando.');
+console.log(`Conectado a ${actual.nombre}. Bot escuchando.`);
 process.once('SIGTERM', async () => { await bot.stop(); await actual.cerrar(); });
 process.once('SIGINT', async () => { await bot.stop(); await actual.cerrar(); });
 bot.start();

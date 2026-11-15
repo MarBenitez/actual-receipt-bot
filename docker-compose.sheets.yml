@@ -1,0 +1,15 @@
+# Google Sheets version: the bot writes to your sheet through its Apps Script web app, so it does not need Actual
+# or its Docker network. Start it with:
+#   docker compose -f docker-compose.sheets.yml up -d --build
+services:
+  receipt-bot:
+    build: .
+    image: actual-receipt-bot
+    container_name: actual-receipt-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - receipt-bot-data:/app/data
+    mem_limit: 512m
+volumes:
+  receipt-bot-data:
