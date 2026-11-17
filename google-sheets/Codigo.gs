@@ -12,14 +12,16 @@
  */
 
 // Categorías de partida: nombre, emoji y presupuesto al mes (cámbialos en la pestaña Categorías).
-// Pensadas para un sueldo de 1.800 € al mes: 1.630 € de presupuesto y 170 € de ahorro.
+// Pensadas para un sueldo de 1.800 € al mes con 350 € de ahorro: 1.450 € de presupuesto.
 var CATEGORIAS = [
-  ['Alquiler', '🔑', 750], ['Supermercado', '🛒', 300], ['Casa y facturas', '💡', 120], ['Restaurantes y bares', '🍻', 120],
-  ['Transporte', '🚌', 80], ['Salud', '💊', 40], ['Ropa', '👕', 60], ['Ocio', '🎟️', 60],
-  ['Suscripciones', '📺', 30], ['Otros', '📦', 70],
+  ['Alquiler', '🔑', 750], ['Supermercado', '🛒', 250], ['Casa y facturas', '💡', 110], ['Restaurantes y bares', '🍻', 90],
+  ['Transporte', '🚌', 90], ['Salud', '💊', 25], ['Ropa', '👕', 45], ['Ocio', '🎟️', 40],
+  ['Suscripciones', '📺', 30], ['Otros', '📦', 20],
 ];
 var SUELDO = 1800; // sueldo de partida (cámbialo en la pestaña Categorías)
+var AHORRO = 350;  // lo que quieres ahorrar cada mes
 var CELDA_SUELDO = 'H2'; // en Categorías
+var CELDA_AHORRO = 'H5'; // en Categorías
 // Gastos fijos que no cuentan en "Donde más se te va" (siempre ganarían).
 var FIJOS = ['Alquiler', 'Hipoteca'];
 var MAX_CAT = 12; // el Resumen enseña las 12 primeras categorías
@@ -180,6 +182,9 @@ function montarCategorias_(h) {
   h.getRange('H1').setValue('💶 Tu sueldo al mes');
   if (h.getRange(CELDA_SUELDO).getValue() === '') h.getRange(CELDA_SUELDO).setValue(SUELDO);
   h.getRange(CELDA_SUELDO).setNumberFormat('#,##0 "€"').setFontWeight('bold').setFontSize(14);
+  h.getRange('H4').setValue('🐷 Quiero ahorrar al mes');
+  if (h.getRange(CELDA_AHORRO).getValue() === '') h.getRange(CELDA_AHORRO).setValue(AHORRO);
+  h.getRange(CELDA_AHORRO).setNumberFormat('#,##0 "€"').setFontWeight('bold').setFontSize(14);
   h.setColumnWidth(7, 24);
   h.setColumnWidth(8, 170);
   h.getRange('F1').setValue('Cómo se usa');
@@ -190,7 +195,8 @@ function montarCategorias_(h) {
     ['• El color va como #RRGGBB. Al cambiar de tema en "Mi estilo" se ponen los del tema.'],
     ['• El Resumen enseña las ' + MAX_CAT + ' primeras.'],
   ]);
-  h.getRange('F7').setValue('• Pon tu sueldo en ' + CELDA_SUELDO + ': el Resumen te dice cuánto te queda y cuánto ahorras.');
+  h.getRange('F7').setValue('• Pon tu sueldo en ' + CELDA_SUELDO + ' y lo que quieres ahorrar en ' + CELDA_AHORRO + ': el Resumen te dice cuánto te queda para gastar sin tocar ese ahorro.');
+  h.getRange('F8').setFormula(F_('=IF(H2="","","• Tus presupuestos suman "&TEXT(SUM(C2:C),"#,##0")&" €. Sueldo menos ahorro: "&TEXT(H2-H5,"#,##0")&" €."&IF(SUM(C2:C)>H2-H5," Te pasas: baja algún presupuesto.",""))'));
 }
 
 // Las categorías sin color reciben uno de la paleta de tu tema.
@@ -253,6 +259,8 @@ function montarCalculos_(ss, h) {
     [22, 'Presupuesto total', "=SUM('Categorías'!C2:C)", '#,##0'],
     [23, 'Días que quedan', '=EOMONTH(TODAY(),0)-TODAY()+1', '0'],
     [25, 'Sueldo', "=N('Categorías'!$H$2)", '#,##0'],
+    [27, 'Ahorro que quieres', "=N('Categorías'!$H$5)", '#,##0'],
+    [28, 'Para gastar (sueldo - ahorro)', '=B25-B27', '#,##0'],
     [26, 'Gastado sin fijos (máx. categoría)', '=MAX(FILTER(F4:F15,ISNA(MATCH(D4:D15,{"Alquiler";"Hipoteca"},0))))', '#,##0.00'],
     [24, 'Este mes (para el bot)', '=SUMIFS(' + G + 'C:C,' + G + 'A:A,">="&EOMONTH(TODAY(),-1)+1,' + G + 'A:A,"<="&EOMONTH(TODAY(),0))', '#,##0.00'],
   ];
@@ -321,8 +329,8 @@ function montarResumen_(h) {
   var tarjetas = [
     ['B', 'C', 'Llevas gastado', '=' + C + 'B19', '#,##0.00 "€"',
       '=' + C + 'B21&IF(' + C + 'B21=1," ticket"," tickets")&" · media "&TEXT(IFERROR(' + C + 'B19/' + C + 'B21,0),"0")&" €"'],
-    ['D', 'E', 'Te queda del sueldo', '=IF(' + C + 'B25>0,' + C + 'B25-' + C + 'B19,' + C + 'B22-' + C + 'B19)', '#,##0 "€"',
-      '=IF(' + C + 'B25>0,"de "&TEXT(' + C + 'B25,"#,##0")&" € · "&IF(' + C + 'B16,"puedes gastar "&TEXT(MAX(0,' + C + 'B25-' + C + 'B19)/' + C + 'B23,"0")&" € al día",TEXT(IFERROR(' + C + 'B19/' + C + 'B25,0),"0%")&" gastado"),IF(' + C + 'B22=0,"Pon tu sueldo en Categorías","de "&TEXT(' + C + 'B22,"0")&" € de presupuesto"))'],
+    ['D', 'E', 'Te queda para gastar', '=IF(' + C + 'B25>0,' + C + 'B28-' + C + 'B19,' + C + 'B22-' + C + 'B19)', '#,##0 "€"',
+      '=IF(' + C + 'B25>0,"de "&TEXT(' + C + 'B28,"#,##0")&" € (ahorras "&TEXT(' + C + 'B27,"#,##0")&" €)"&IF(' + C + 'B16," · "&TEXT(MAX(0,' + C + 'B28-' + C + 'B19)/' + C + 'B23,"0")&" € al día",""),IF(' + C + 'B22=0,"Pon tu sueldo en Categorías","de "&TEXT(' + C + 'B22,"0")&" € de presupuesto"))'],
     ['G', 'H', 'Vs. mes pasado', '=' + C + 'B19-' + C + 'B20', '+#,##0 "€";-#,##0 "€";0 "€"',
       '=IF(' + C + 'B16,"que el mes pasado a estas alturas","que el mes anterior")'],
     ['I', 'J', 'Donde más se te va', '=IF(N(' + C + 'B26)=0,"—",INDEX(' + C + 'E4:E15,MATCH(' + C + 'B26,' + C + 'F4:F15,0)))', null,
@@ -576,6 +584,7 @@ function reiniciarCategorias() {
   var h = hoja_('Categorías');
   if (h.getLastRow() > 1) h.getRange(2, 1, h.getLastRow() - 1, 4).clearContent();
   h.getRange(CELDA_SUELDO).clearContent();
+  h.getRange(CELDA_AHORRO).clearContent();
   configurar();
 }
 
@@ -594,13 +603,13 @@ function ejemplo() {
 // [comercio, categoría, importe típico, veces al mes, día fijo (0 = cualquiera)]
 var EJEMPLO = [
   ['Alquiler piso', 'Alquiler', 750, 1, 1], ['Iberdrola', 'Casa y facturas', 48, 1, 9], ['Digi', 'Casa y facturas', 25, 1, 12],
-  ['Mercadona', 'Supermercado', 46, 4, 0], ['Lidl', 'Supermercado', 27, 2, 0], ['Carrefour', 'Supermercado', 63, 1, 0],
-  ['Bar Manolo', 'Restaurantes y bares', 11, 3, 0], ['La Tagliatella', 'Restaurantes y bares', 38, 1, 0],
-  ['Metro de Madrid', 'Transporte', 20, 1, 2], ['Cabify', 'Transporte', 13, 2, 0], ['Repsol', 'Transporte', 55, 1, 0],
-  ['Farmacia', 'Salud', 14, 1, 0], ['Zara', 'Ropa', 36, 1, 0], ['Primark', 'Ropa', 21, 1, 0],
-  ['IKEA', 'Casa y facturas', 47, 1, 0], ['Leroy Merlin', 'Casa y facturas', 24, 1, 0], ['Cines Yelmo', 'Ocio', 17, 1, 0],
-  ['Fnac', 'Ocio', 26, 1, 0], ['Netflix', 'Suscripciones', 13.99, 1, 6], ['Spotify', 'Suscripciones', 11.99, 1, 14],
-  ['Amazon', 'Otros', 23, 1, 0],
+  ['Mercadona', 'Supermercado', 42, 4, 0], ['Lidl', 'Supermercado', 24, 2, 0],
+  ['Bar Manolo', 'Restaurantes y bares', 10, 3, 0], ['La Tagliatella', 'Restaurantes y bares', 32, 1, 0],
+  ['Metro de Madrid', 'Transporte', 20, 1, 2], ['Cabify', 'Transporte', 12, 2, 0], ['Repsol', 'Transporte', 45, 1, 0],
+  ['Farmacia', 'Salud', 14, 1, 0], ['Zara', 'Ropa', 30, 1, 0], ['Primark', 'Ropa', 15, 1, 0],
+  ['IKEA', 'Casa y facturas', 25, 1, 0], ['Cines Yelmo', 'Ocio', 15, 1, 0],
+  ['Fnac', 'Ocio', 22, 1, 0], ['Netflix', 'Suscripciones', 13.99, 1, 6], ['Spotify', 'Suscripciones', 11.99, 1, 14],
+  ['Amazon', 'Otros', 18, 1, 0],
 ];
 
 /** Filas [fecha ISO, comercio, importe, categoría] desde hace 5 meses hasta hoy. Sin Apps Script: se puede probar fuera. */
