@@ -1,3 +1,4 @@
+/** @OnlyCurrentDoc */
 /**
  * Bot de gastos → Google Sheets (v2)
  *
